@@ -1,0 +1,19 @@
+select order_placed_dttm::date
+        , products.product_part_number
+        , left(addr.customer_address_zip, 5) as customer_address_zip
+        , sum(olcm.order_line_net_sales) as net_sales
+        , sum(olcm.order_line_quantity) as units
+from chewybi.order_line_cost_measures_pharmacy olcm
+left join chewybi.products_pharmacy as products
+using (product_key)
+left join chewybi.orders_pharmacy as orders
+using (order_key)
+left join chewybi.customer_addresses addr
+using(customer_address_key)
+where true
+and order_placed_dttm::date between current_date - '{days}' and current_date
+and lower(orders.order_status) not in ('x', 'j')
+and products.product_company_description not ilike '%canada%'
+-- and product_part_number in ('46861')
+-- and left(addr.customer_address_zip, 5) = '33324'
+group by 1,2,3
