@@ -1,6 +1,7 @@
 select order_placed_dttm::date
-        , products.product_part_number
-        , left(addr.customer_address_zip, 5) as customer_address_zip
+        --, products.product_part_number
+        , products.product_merch_classification1
+        --, left(addr.customer_address_zip, 5) as customer_address_zip
         , sum(olcm.order_line_net_sales) as net_sales
         , sum(olcm.order_line_quantity) as units
 from chewybi.order_line_cost_measures_pharmacy olcm
@@ -15,6 +16,10 @@ and order_placed_dttm::date between current_date - 365 and current_date
 and lower(orders.order_status) not in ('x', 'j')
 and products.product_company_description not ilike '%canada%'
 and product_discontinued_flag = False
-and products.product_category_level1 = 'Cat' -- 'Small Pet'
+and products.product_merch_classification1 in ('Consumables', 'Healthcare',
+                                     'Hard Goods', 'Specialty',
+                                     'Premium'
+                                        )
+group by 1,2--,3
+order by 2, 1
 
-group by 1,2,3
