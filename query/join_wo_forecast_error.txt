@@ -1,8 +1,13 @@
 WITH random_skus as (
     SELECT product_part_number
     FROM chewybi.products
+    WHERE
+        products.product_discontinued_flag = False
+        AND products.product_buyable_flag = True
+        AND products.product_published_flag = True
+        AND products.product_company_description NOT ILIKE '%canada%'
     ORDER BY RANDOM(1205) -- 1205 as seed; generating the same samples 
-    LIMIT 1000
+    LIMIT 100000
 
 ) -- select * from random_skus;
 
