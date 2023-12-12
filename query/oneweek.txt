@@ -19,7 +19,7 @@ WITH _retails AS (
         products.product_discontinued_flag = False
         AND products.product_buyable_flag = True
         AND products.product_published_flag = True
-        AND order_placed_dttm::date = '2023-09-04' -- a Monday that has no promo --between CURRENT_DATE - 365 and CURRENT_DATE
+        AND order_placed_dttm::date between '2023-09-04' and '2023-09-10' -- a week with no promo-- CURRENT_DATE - 365 and CURRENT_DATE
         AND LOWER(orders.order_status) NOT IN ('x', 'j')
         AND products.product_company_description NOT ILIKE '%canada%'
         
@@ -49,7 +49,7 @@ WITH _retails AS (
     JOIN chewybi.locations l USING (location_key)
     WHERE
         1=1
-        AND inventory_snapshot_snapshot_dt::date = '2023-09-04'--BETWEEN CURRENT_DATE - 365 AND CURRENT_DATE
+        AND inventory_snapshot_snapshot_dt::date between '2023-09-04' and '2023-09-10' -- a week with no promo--BETWEEN CURRENT_DATE - 365 AND CURRENT_DATE
         AND l.fulfillment_active = TRUE
         AND l.location_active_warehouse = 1
         AND l.location_warehouse_type = 0
@@ -86,7 +86,7 @@ select
     
 from PDM.PRODUCT_SNAPSHOT
 where 1=1
-and snapshot_date::date = '2023-09-04' --between CURRENT_DATE - 365 and CURRENT_DATE
+and snapshot_date::date between '2023-09-04' and '2023-09-10' -- a week with no promo--between CURRENT_DATE - 365 and CURRENT_DATE
 )
 
 -- Joining the CTEs
