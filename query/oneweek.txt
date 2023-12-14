@@ -144,6 +144,7 @@ Joined                 120,498
 
 
 SELECT
+    p.price_snapshot_date, 
     p.category_level1,
     p.category_level2,
     p.category_level3,
@@ -151,8 +152,8 @@ SELECT
     p.MERCH_CLASSIFICATION2,
     p.MERCH_CLASSIFICATION3,
     -- p.price,
-    p.list_price,
-    p.price_snapshot_date, 
+    COALESCE(p.price, p.list_price) as list_price,
+    
     COALESCE(p.rating_avg, 0) as rating_avg,
     COALESCE(p.rating_cnt, 0) as rating_cnt,
     -- r.order_placed_dttm,
@@ -174,23 +175,6 @@ LEFT JOIN
     retails r ON r.product_part_number = p.part_number AND r.order_placed_dttm = p.price_snapshot_date
 LEFT JOIN
     stock s ON r.product_part_number = s.product_part_number AND r.order_placed_dttm = s.inventory_snapshot_snapshot_dt
-
--- WHERE
---     category_level1 IS NULL OR
---     category_level2 IS NULL OR
---     category_level3 IS NULL OR
---     MERCH_CLASSIFICATION1 IS NULL OR
---     MERCH_CLASSIFICATION2 IS NULL OR
---     MERCH_CLASSIFICATION3 IS NULL OR
---     list_price IS NULL OR
---     rating_avg IS NULL OR
---     rating_cnt IS NULL OR
---     total_units IS NULL OR
---     total_current_on_hand IS NULL OR
---     num_distinct_unique_visit_id IS NULL OR
---     total_distinct_customer_ids IS NULL OR
---     total_HIT_NUMBER IS NULL OR
---     record_HIT_NUMBER IS NULL
     
 ORDER BY p.part_number, p.price_snapshot_date
 ;
