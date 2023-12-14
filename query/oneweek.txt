@@ -19,9 +19,10 @@ WITH _retails AS (
         products.product_discontinued_flag = False
         AND products.product_buyable_flag = True
         AND products.product_published_flag = True
-        AND order_placed_dttm::date between '2023-09-04' and '2023-09-10' -- a week with no promo-- CURRENT_DATE - 365 and CURRENT_DATE
+        AND order_placed_dttm::date between '2023-09-04' and '2023-10-01' -- a week with no promo-- CURRENT_DATE - 365 and CURRENT_DATE
         AND LOWER(orders.order_status) NOT IN ('x', 'j')
         AND products.product_company_description NOT ILIKE '%canada%'
+        AND products.PRODUCT_MERCH_CLASSIFICATION1 = 'Premium'
         
     GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
 )
@@ -49,12 +50,15 @@ WITH _retails AS (
     JOIN chewybi.locations l USING (location_key)
     WHERE
         1=1
-        AND inventory_snapshot_snapshot_dt::date between '2023-09-04' and '2023-09-10' -- a week with no promo--BETWEEN CURRENT_DATE - 365 AND CURRENT_DATE
+        AND inventory_snapshot_snapshot_dt::date between '2023-09-04' and '2023-10-01' -- a week with no promo--BETWEEN CURRENT_DATE - 365 AND CURRENT_DATE
         AND l.fulfillment_active = TRUE
         AND l.location_active_warehouse = 1
         AND l.location_warehouse_type = 0
         AND l.product_company_description = 'Chewy'
-        
+        AND p.PRODUCT_MERCH_CLASSIFICATION1 = 'Premium'
+        AND p.product_discontinued_flag = False
+        AND p.product_buyable_flag = True
+        AND p.product_published_flag = True
     GROUP BY 1, 2
 )
 
@@ -86,18 +90,60 @@ select
     
 from PDM.PRODUCT_SNAPSHOT
 where 1=1
-and snapshot_date::date between '2023-09-04' and '2023-09-10' -- a week with no promo--between CURRENT_DATE - 365 and CURRENT_DATE
+
+AND discontinued_flag = False
+AND buyable_flag = True
+AND published_flag = True
+and snapshot_date::date between '2023-09-04' and '2023-10-01' -- a week with no promo--between CURRENT_DATE - 365 and CURRENT_DATE
+and MERCH_CLASSIFICATION1 = 'Premium'
+) -- select * from price;
+
+
+, UniqueCustomerPerVisitPerSKU AS (
+    SELECT 
+        GA_SESSIONS_DATE,
+        product_part_number,
+        unique_visit_id,
+        COUNT(DISTINCT CUSTOMER_ID) AS num_disctinct_CUSTOMER_ID,
+        sum(HIT_NUMBER) as total_HIT_NUMBER,
+        count(HIT_NUMBER) as record_HIT_NUMBER
+    FROM EDLDB.GA.GA_SESSIONS_HITS_PRODUCTS
+    WHERE GA_SESSIONS_DATE BETWEEN '2023-09-04' and '2023-10-01'
+    AND PRODUCT_MERCH_CLASSIFICATION1 = 'Premium'
+    GROUP BY GA_SESSIONS_DATE,  product_part_number, unique_visit_id
 )
 
+, CustomerInteraction as (
+    SELECT 
+        ucpvps.GA_SESSIONS_DATE::DATE as GA_SESSIONS_DATE,
+        product_part_number,
+        COUNT(DISTINCT ucpvps.unique_visit_id) AS num_distinct_unique_visit_id,
+        SUM(ucpvps.num_disctinct_CUSTOMER_ID) AS total_distinct_customer_ids,
+        SUM(total_HIT_NUMBER) as total_HIT_NUMBER,
+        SUM(record_HIT_NUMBER) as record_HIT_NUMBER
+    FROM UniqueCustomerPerVisitPerSKU ucpvps
+    GROUP BY 
+        ucpvps.GA_SESSIONS_DATE, product_part_number
+    ORDER BY GA_SESSIONS_DATE
+) -- select * from CustomerInteraction as ci;
+
 -- Joining the CTEs
+
+/*
+2023-09-04 to 2023-10-01
+Price:                 120,498
+Customer Interactions: 100,602
+Stock:                  89,199    
+Retails:                71,509
+
+Joined                 120,498
+
+*/
+
+
+
+
 SELECT
-    r.order_placed_dttm,
-    r.product_part_number,
-    -- r.total_net_sales,
-    r.total_units,
-    -- s.inventory_snapshot_snapshot_dt,
-    s.total_current_on_hand,
-    -- p.price_snapshot_date,
     p.category_level1,
     p.category_level2,
     p.category_level3,
@@ -106,14 +152,44 @@ SELECT
     p.MERCH_CLASSIFICATION3,
     -- p.price,
     p.list_price,
-    p.rating_avg,
-    p.rating_cnt
+    COALESCE(p.rating_avg, 0) as rating_avg,
+    COALESCE(p.rating_cnt, 0) as rating_cnt,
+    -- r.order_placed_dttm,
+    p.part_number as product_part_number,
+    -- r.total_net_sales,
+    COALESCE(r.total_units, 0) as total_units,
+    -- s.inventory_snapshot_snapshot_dt,
+    COALESCE(s.total_current_on_hand, 0) as total_current_on_hand,
+    -- p.price_snapshot_date,
+    COALESCE(ci.num_distinct_unique_visit_id, 0) as num_distinct_unique_visit_id,
+    COALESCE(ci.total_distinct_customer_ids, 0) as total_distinct_customer_ids,
+    COALESCE(ci.total_HIT_NUMBER, 0) as total_HIT_NUMBER,
+    COALESCE(ci.record_HIT_NUMBER, 0) as record_HIT_NUMBER
 FROM
-    retails r
-JOIN
+    price p 
+LEFT JOIN 
+    CustomerInteraction ci ON p.part_number = ci.product_part_number AND p.price_snapshot_date = ci.GA_SESSIONS_DATE
+LEFT JOIN 
+    retails r ON r.product_part_number = p.part_number AND r.order_placed_dttm = p.price_snapshot_date
+LEFT JOIN
     stock s ON r.product_part_number = s.product_part_number AND r.order_placed_dttm = s.inventory_snapshot_snapshot_dt
-JOIN
-    price p ON r.product_part_number = p.part_number AND r.order_placed_dttm = p.price_snapshot_date
 
-ORDER BY r.product_part_number, r.order_placed_dttm
+-- WHERE
+--     category_level1 IS NULL OR
+--     category_level2 IS NULL OR
+--     category_level3 IS NULL OR
+--     MERCH_CLASSIFICATION1 IS NULL OR
+--     MERCH_CLASSIFICATION2 IS NULL OR
+--     MERCH_CLASSIFICATION3 IS NULL OR
+--     list_price IS NULL OR
+--     rating_avg IS NULL OR
+--     rating_cnt IS NULL OR
+--     total_units IS NULL OR
+--     total_current_on_hand IS NULL OR
+--     num_distinct_unique_visit_id IS NULL OR
+--     total_distinct_customer_ids IS NULL OR
+--     total_HIT_NUMBER IS NULL OR
+--     record_HIT_NUMBER IS NULL
     
+ORDER BY p.part_number, p.price_snapshot_date
+;
