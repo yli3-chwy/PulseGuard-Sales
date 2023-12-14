@@ -152,6 +152,7 @@ SELECT
     p.MERCH_CLASSIFICATION3,
     -- p.price,
     p.list_price,
+    p.price_snapshot_date, 
     COALESCE(p.rating_avg, 0) as rating_avg,
     COALESCE(p.rating_cnt, 0) as rating_cnt,
     -- r.order_placed_dttm,
